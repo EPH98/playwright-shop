@@ -80,6 +80,7 @@ jobs:
             npx playwright test --project=${{ matrix.project }} --grep "$GREP"
           else
             npx playwright test --project=${{ matrix.project }}
+          fi
         env:
           CI: true
           # BASE_URL is intentionally omitted here so playwright.config.ts
