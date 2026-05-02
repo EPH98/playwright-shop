@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: #F7F3EC;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-rust text-white px-6 py-3 font-body font-medium tracking-wide
+           hover:bg-rust-light active:scale-95 transition-all duration-200
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rust focus-visible:ring-offset-2
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
+  }
+
+  .btn-secondary {
+    @apply border border-ink text-ink px-6 py-3 font-body font-medium tracking-wide
+           hover:bg-ink hover:text-cream active:scale-95 transition-all duration-200
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2;
+  }
+
+  .btn-ghost {
+    @apply text-muted px-3 py-1.5 font-body text-sm
+           hover:text-ink transition-colors duration-150
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2;
+  }
+
+  .card {
+    @apply bg-surface border border-border;
+  }
+
+  .tag {
+    @apply inline-block px-2.5 py-0.5 text-xs font-mono bg-surface-alt text-muted border border-border;
+  }
+}
+
+@layer utilities {
+  .writing-vertical {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}

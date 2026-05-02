@@ -1,0 +1,139 @@
+name: Playwright Tests
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Triggers
+#
+#  • push / PR to main or develop  — run the full suite on every code change.
+#  • schedule                       — daily regression run at 02:00 UTC to
+#                                     catch environment / dependency drift.
+#
+# The same job handles all three triggers; the `schedule` event is identifiable
+# via github.event_name if you ever need trigger-specific behaviour.
+# ─────────────────────────────────────────────────────────────────────────────
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Daily at 02:00 UTC — extend this cron expression for other schedules.
+    # e.g. every weekday at 06:00 UTC: '0 6 * * 1-5'
+    - cron: '0 2 * * *'
+
+  # Allow manual triggering from the Actions tab with optional tag filtering
+  workflow_dispatch:
+    inputs:
+      grep:
+        description: 'Test tag to filter (e.g. @smoke, @regression, or leave blank for all)'
+        required: false
+        default: ''
+      browser:
+        description: 'Browser project to run (chromium | firefox | webkit | all)'
+        required: false
+        default: 'all'
+
+jobs:
+  test:
+    name: 'Playwright — ${{ matrix.project }}'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # Run each browser in a separate job for maximum parallelism.
+        # Remove entries to reduce CI minutes; chromium is the fastest.
+        project: [chromium, firefox, webkit]
+
+    steps:
+      # ── Checkout ──────────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Node setup ───────────────────────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # ── Dependencies ─────────────────────────────────────────────────────────
+      - name: Install dependencies
+        run: npm ci
+
+      # ── Playwright browsers ──────────────────────────────────────────────────
+      - name: Install Playwright browsers & system deps
+        run: npx playwright install --with-deps ${{ matrix.project }}
+
+      # ── Build the app ────────────────────────────────────────────────────────
+      # The webServer config in playwright.config.ts builds + serves the app
+      # automatically.  We pre-build here so the build artefact is cached by
+      # GitHub Actions between reruns on the same commit.
+      - name: Build Next.js application
+        run: npm run build
+
+      # ── Run tests ────────────────────────────────────────────────────────────
+      - name: Run Playwright tests
+        run: |
+          GREP="${{ github.event.inputs.grep }}"
+          if [ -n "$GREP" ]; then
+            npx playwright test --project=${{ matrix.project }} --grep "$GREP"
+          else
+            npx playwright test --project=${{ matrix.project }}
+        env:
+          CI: true
+          # BASE_URL is intentionally omitted here so playwright.config.ts
+          # starts its own server via the webServer option.
+
+      # ── Upload report ────────────────────────────────────────────────────────
+      - name: Upload Playwright HTML report
+        uses: actions/upload-artifact@v4
+        if: always() # upload even on test failure
+        with:
+          name: playwright-report-${{ matrix.project }}-${{ github.run_id }}
+          path: playwright-report/
+          retention-days: 14
+
+      # ── Upload test results (traces/screenshots/videos) ───────────────────────
+      - name: Upload test artefacts on failure
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-results-${{ matrix.project }}-${{ github.run_id }}
+          path: test-results/
+          retention-days: 7
+
+  # ─── Smoke-only fast gate ──────────────────────────────────────────────────
+  # On PRs, also run a dedicated smoke-tag pass on Chromium only as a fast
+  # gate that completes before the full matrix finishes.
+  smoke:
+    name: 'Smoke tests (fast gate)'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+
+      - name: Run smoke tests
+        run: npx playwright test --project=chromium --grep "@smoke"
+        env:
+          CI: true
+
+      - name: Upload smoke report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-report-${{ github.run_id }}
+          path: playwright-report/
+          retention-days: 3

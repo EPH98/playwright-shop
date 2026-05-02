@@ -1,0 +1,40 @@
+# docker-compose.test.yml
+#
+# Run the full Playwright suite against the containerised Next.js app.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.test.yml up \
+#     --abort-on-container-exit --exit-code-from playwright
+#
+# This file EXTENDS docker-compose.yml; run them together.
+# Test reports are written to ./playwright-report on the host.
+
+services:
+  app:
+    # Re-use the app definition from docker-compose.yml.
+    # The healthcheck defined there ensures `playwright` only starts once the
+    # app is fully ready.
+    depends_on:
+      app:
+        condition: service_healthy
+
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.44.0-jammy
+    container_name: playwright-shop-tests
+    working_dir: /workspace
+    volumes:
+      # Mount the project so Playwright has access to tests and config.
+      - .:/workspace
+      # Persist test reports to the host for review.
+      - ./playwright-report:/workspace/playwright-report
+      - ./test-results:/workspace/test-results
+    environment:
+      # Point the suite at the running app container.
+      BASE_URL: http://app:3000
+      CI: "true"
+    # Install node_modules inside the container before running.
+    command: >
+      sh -c "npm ci && npx playwright test"
+    depends_on:
+      app:
+        condition: service_healthy
