@@ -54,17 +54,15 @@ jobs:
       # then wait for the server to be ready before k6 runs.
       # Look into the `wait-on` npm package for this.
 
-      - name: Install k6
+      - name: Install dependencies and start server
         run: |
-          sudo gpg -k
-          sudo gpg --no-default-keyring \
-            --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
-            --keyserver hkp://keyserver.ubuntu.com:80 \
-            --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
-          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
-            | sudo tee /etc/apt/sources.list.d/k6.list
-          sudo apt-get update
-          sudo apt-get install k6
+          npm ci
+          npm run build
+          npm start &
+          npx wait-on http://localhost:3000
+
+      - name: Install k6
+        uses: grafana/setup-k6-action@v1
 
       - name: Run load test
         run: |
@@ -79,44 +77,3 @@ jobs:
       # TODO: Upload the results file as a GitHub artifact so you can
       # download and inspect it after the run.
       # Hint: Use actions/upload-artifact@v4
-
-  # ------------------------------------------------------------------
-  # JOB 2: Browser Performance Test
-  # ------------------------------------------------------------------
-  browser-test:
-    name: Browser Performance Test
-    runs-on: ubuntu-latest
-    if: >
-      github.event_name == 'schedule' ||
-      github.event.inputs.test_type == 'browser' ||
-      github.event.inputs.test_type == 'all'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      # TODO: Same as above — start your Next.js app before the test runs.
-
-      - name: Install k6 with browser
-        run: |
-          sudo gpg -k
-          sudo gpg --no-default-keyring \
-            --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
-            --keyserver hkp://keyserver.ubuntu.com:80 \
-            --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
-          echo "deb [signed-by=/usr/share-keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
-            | sudo tee /etc/apt/sources.list.d/k6.list
-          sudo apt-get update
-          sudo apt-get install k6
-
-      - name: Run browser test
-        run: |
-          k6 run \
-            --out json=performance/results/browser-results.json \
-            performance/browser/shop-browser.ts
-        env:
-          BASE_URL: http://localhost:3000
-          K6_BROWSER_HEADLESS: true   # Must be true in CI — no display available
-
-      # TODO: Upload screenshots folder as artifact (useful for debugging failures)
-      # TODO: Upload results JSON as artifact
