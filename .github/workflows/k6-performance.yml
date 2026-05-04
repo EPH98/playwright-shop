@@ -1,0 +1,122 @@
+# k6-performance.yml
+#
+# This workflow runs your k6 performance tests in CI.
+#
+# It's triggered in two ways:
+#   1. On a schedule (nightly) — catches regressions that creep in over time
+#   2. Manually via workflow_dispatch — so you can run it on demand
+#
+# LEARNING GOAL: Understand how performance testing fits into a CI pipeline.
+#
+# TODO items are marked clearly — fill them in as you build out the tests.
+
+name: Performance Tests
+
+on:
+  schedule:
+    # Runs at 02:00 UTC every night.
+    # Cron format: minute hour day month weekday
+    - cron: '0 2 * * *'
+
+  workflow_dispatch:
+    # Allows manual triggering from the GitHub Actions UI.
+    # Useful while you're developing the tests.
+    inputs:
+      test_type:
+        description: 'Which test to run'
+        required: true
+        default: 'load'
+        type: choice
+        options:
+          - load
+          - browser
+          - all
+
+jobs:
+  # ------------------------------------------------------------------
+  # JOB 1: HTTP Load Test
+  # ------------------------------------------------------------------
+  load-test:
+    name: HTTP Load Test
+    runs-on: ubuntu-latest
+    # Only run if triggered manually with 'load' or 'all', OR on schedule
+    if: >
+      github.event_name == 'schedule' ||
+      github.event.inputs.test_type == 'load' ||
+      github.event.inputs.test_type == 'all'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # TODO: Add a step to start your Next.js app in the background.
+      # Hint: You'll need to install dependencies and run `npm run build && npm start &`
+      # then wait for the server to be ready before k6 runs.
+      # Look into the `wait-on` npm package for this.
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring \
+            --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
+            --keyserver hkp://keyserver.ubuntu.com:80 \
+            --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
+            | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+
+      - name: Run load test
+        run: |
+          k6 run \
+            --out json=performance/results/load-results.json \
+            performance/load/shop-load.ts
+        env:
+          BASE_URL: http://localhost:3000
+          # TODO: When you have a deployed URL, pass it as a secret:
+          # BASE_URL: ${{ secrets.STAGING_URL }}
+
+      # TODO: Upload the results file as a GitHub artifact so you can
+      # download and inspect it after the run.
+      # Hint: Use actions/upload-artifact@v4
+
+  # ------------------------------------------------------------------
+  # JOB 2: Browser Performance Test
+  # ------------------------------------------------------------------
+  browser-test:
+    name: Browser Performance Test
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'schedule' ||
+      github.event.inputs.test_type == 'browser' ||
+      github.event.inputs.test_type == 'all'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # TODO: Same as above — start your Next.js app before the test runs.
+
+      - name: Install k6 with browser
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring \
+            --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
+            --keyserver hkp://keyserver.ubuntu.com:80 \
+            --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share-keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
+            | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+
+      - name: Run browser test
+        run: |
+          k6 run \
+            --out json=performance/results/browser-results.json \
+            performance/browser/shop-browser.ts
+        env:
+          BASE_URL: http://localhost:3000
+          K6_BROWSER_HEADLESS: true   # Must be true in CI — no display available
+
+      # TODO: Upload screenshots folder as artifact (useful for debugging failures)
+      # TODO: Upload results JSON as artifact
