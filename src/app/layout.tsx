@@ -3,6 +3,8 @@ import { Playfair_Display, DM_Sans, Space_Mono } from 'next/font/google'
 import './globals.css'
 import { Header } from '@/components/Header'
 
+const copyrightYear = new Date().getFullYear()
+
 const playfair = Playfair_Display({
   subsets: ['latin'],
   variable: '--font-playfair',
@@ -61,7 +63,7 @@ export default function RootLayout({
             </div>
           </div>
           <div className="max-w-7xl mx-auto px-6 mt-10 pt-6 border-t border-border flex justify-between items-center">
-            <p className="text-xs text-muted font-mono">© 2024 The Workspace. All rights reserved.</p>
+            <p className="text-xs text-muted font-mono">© {copyrightYear} The Workspace. All rights reserved.</p>
             <p className="text-xs text-muted font-mono">Playwright-powered QA</p>
           </div>
         </footer>

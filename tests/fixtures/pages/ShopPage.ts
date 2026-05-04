@@ -29,6 +29,8 @@ export class ShopPage extends BasePage {
   async goto(category?: string) {
     const url = category ? `/?category=${encodeURIComponent(category)}` : '/'
     await super.goto(url)
+    // Wait for products to load from API
+    await this.page.waitForSelector('[data-testid="product-card"]', { timeout: 5000 })
   }
 
   // ─── Products ────────────────────────────────────────────────────────────────
@@ -52,8 +54,8 @@ export class ShopPage extends BasePage {
 
   async search(query: string) {
     await this.searchInput.fill(query)
-    // The filter is reactive; give React a tick to update
-    await this.page.waitForTimeout(100)
+    // Wait for search results to update
+    await this.page.waitForTimeout(200)
   }
 
   async clearSearch() {
@@ -70,7 +72,8 @@ export class ShopPage extends BasePage {
   async filterByCategory(category: string) {
     const testId = `filter-${category.replace(/\s+/g, '-').replace('&', 'and')}`
     await this.page.getByTestId(testId).click()
-    await this.page.waitForTimeout(100)
+    // Wait for filtered products to appear
+    await this.page.waitForSelector('[data-testid="product-card"]', { timeout: 5000 })
   }
 
   async sortBy(value: 'featured' | 'price-asc' | 'price-desc' | 'rating') {
