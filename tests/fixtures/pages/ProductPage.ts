@@ -39,6 +39,12 @@ export class ProductPage extends BasePage {
 
   async goto(productId: string) {
     await super.goto(`/products/${productId}`)
+    // Wait for product details to load from API
+    try {
+      await this.page.waitForSelector('[data-testid="product-detail"]', { timeout: 5000 })
+    } catch {
+      // Product not found (404) is expected for invalid IDs; don't fail here
+    }
   }
 
   // ─── Quantity ────────────────────────────────────────────────────────────────

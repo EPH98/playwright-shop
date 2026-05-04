@@ -1,25 +1,61 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { getProductById, products } from '@/data/products'
 import { useCartStore } from '@/store/cart'
 import { ProductCard } from '@/components/ProductCard'
+import { Product } from '@/types'
 
 export default function ProductPage({ params }: { params: { id: string } }) {
-  const product = getProductById(params.id)
-
-  if (!product) {
-    notFound()
-  }
-
+  const [product, setProduct] = useState<Product | null>(null)
+  const [related, setRelated] = useState<Product[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [quantity, setQuantity] = useState(1)
   const [added, setAdded] = useState(false)
   const addItem = useCartStore((s) => s.addItem)
 
+  // Fetch product details from API
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+
+        // Fetch the product
+        const productResponse = await fetch(`/api/products/${params.id}`)
+        if (!productResponse.ok) {
+          if (productResponse.status === 404) {
+            notFound()
+          }
+          throw new Error(`Failed to fetch product: ${productResponse.statusText}`)
+        }
+        const productData = await productResponse.json()
+        setProduct(productData)
+
+        // Fetch related products by category
+        const relatedResponse = await fetch(`/api/products?category=${encodeURIComponent(productData.category)}`)
+        if (relatedResponse.ok) {
+          const relatedData = await relatedResponse.json()
+          const filteredRelated = relatedData.products
+            .filter((p: Product) => p.id !== productData.id)
+            .slice(0, 4)
+          setRelated(filteredRelated)
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to load product'
+        setError(message)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchProduct()
+  }, [params.id])
+
   const handleAddToCart = () => {
-    if (!product.inStock) return
+    if (!product || !product.inStock) return
     for (let i = 0; i < quantity; i++) {
       addItem(product)
     }
@@ -27,14 +63,27 @@ export default function ProductPage({ params }: { params: { id: string } }) {
     setTimeout(() => setAdded(false), 2000)
   }
 
-  const formattedPrice = new Intl.NumberFormat('en-GB', {
-    style: 'currency',
-    currency: 'GBP',
-  }).format(product.price)
+  if (isLoading) {
+    return (
+      <div className="max-w-7xl mx-auto px-6 py-24 text-center">
+        <p className="text-muted font-mono text-sm animate-pulse">Loading product…</p>
+      </div>
+    )
+  }
 
-  const related = products
-    .filter((p) => p.category === product.category && p.id !== product.id)
-    .slice(0, 4)
+  if (error || !product) {
+    return (
+      <div className="max-w-7xl mx-auto px-6 py-12">
+        <div className="bg-red-50 border border-red-200 text-red-800 px-6 py-4 rounded">
+          <p className="font-semibold">Error loading product</p>
+          <p className="text-sm mt-1">{error || 'Product not found'}</p>
+          <Link href="/" className="text-sm underline mt-3 inline-block">
+            Back to shop
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div data-testid="product-detail">
@@ -120,7 +169,10 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                 className="font-mono text-3xl font-bold"
                 data-testid="product-detail-price"
               >
-                {formattedPrice}
+                {new Intl.NumberFormat('en-GB', {
+                  style: 'currency',
+                  currency: 'GBP',
+                }).format(product.price)}
               </span>
               {product.inStock ? (
                 <span className="text-xs font-mono text-green-700 tracking-wider uppercase">

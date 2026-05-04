@@ -16,14 +16,15 @@
     "test:debug": "playwright test --debug"
   },
   "dependencies": {
+    "clsx": "^2.1.1",
     "next": "14.2.3",
     "react": "^18",
     "react-dom": "^18",
-    "zustand": "^4.5.2",
-    "clsx": "^2.1.1"
+    "zustand": "^4.5.2"
   },
   "devDependencies": {
     "@playwright/test": "^1.44.0",
+    "@types/k6": "^1.7.0",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
