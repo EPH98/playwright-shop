@@ -12,6 +12,9 @@
 
 name: Performance Tests
 
+permissions:
+  contents: read
+
 on:
   schedule:
     # Runs at 02:00 UTC every night.
