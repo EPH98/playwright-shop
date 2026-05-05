@@ -59,6 +59,10 @@ jobs:
             --bundle \
             --platform=node \
             --target=es2020 \
+            --external:k6 \
+            --external:k6/http \
+            --external:k6/metrics \
+            --external:k6/html \
             --outfile=performance/load/shop-load.js
 
       - name: Run load test
