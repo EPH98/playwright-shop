@@ -49,34 +49,33 @@ jobs:
       github.event.inputs.test_type == 'all'
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      # TODO: Add a step to start your Next.js app in the background.
-      # Hint: You'll need to install dependencies and run `npm run build && npm start &`
-      # then wait for the server to be ready before k6 runs.
-      # Look into the `wait-on` npm package for this.
-
-      - name: Install dependencies and start server
-        run: |
-          npm ci
-          npm run build
-          npm start &
-          npx wait-on http://localhost:3000
-
       - name: Install k6
         uses: grafana/setup-k6-action@v1
+
+      - name: Create results directory
+        run: mkdir -p performance/results
+
+      - name: Bundle k6 test
+        run: |
+          npm install --save-dev esbuild
+          npx esbuild performance/load/shop-load.ts \
+            --bundle \
+            --platform=node \
+            --target=es2020 \
+            --outfile=performance/load/shop-load.js
 
       - name: Run load test
         run: |
           k6 run \
             --out json=performance/results/load-results.json \
-            performance/load/shop-load.ts
+            performance/load/shop-load.js
         env:
           BASE_URL: http://localhost:3000
-          # TODO: When you have a deployed URL, pass it as a secret:
-          # BASE_URL: ${{ secrets.STAGING_URL }}
 
-      # TODO: Upload the results file as a GitHub artifact so you can
-      # download and inspect it after the run.
-      # Hint: Use actions/upload-artifact@v4
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: k6-load-results
+          path: performance/results/
+          retention-days: 14
